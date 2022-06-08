@@ -44,6 +44,7 @@ import com.google.android.gms.maps.model.PolylineOptions;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.HashMap;
 import java.util.List;
 
 public class MainActivity extends AppCompatActivity implements OnMapReadyCallback, GoogleMap.OnMapLongClickListener, GoogleMap.OnPolylineClickListener, GoogleMap.OnPolygonClickListener, GoogleMap.OnMapClickListener, GoogleMap.OnMarkerClickListener {
@@ -65,6 +66,8 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
 
 
     ArrayList<Marker> currentMarkers = new ArrayList<Marker>();
+    HashMap<String, Marker> annotationMarkersPolyLine = new HashMap<>();
+    HashMap<String, Marker> annotationMarkersPolygon = new HashMap<>();
     ArrayList<Polyline> currentPolyLines = new ArrayList<Polyline>();
 
 
@@ -177,6 +180,11 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
     @Override
     public void onPolygonClick(@NonNull Polygon polygon) {
         Log.d("MAP", "Polygon click detected");
+        if(annotationMarkersPolygon.get(polygon.getId()) != null){
+            annotationMarkersPolygon.get(polygon.getId()).remove();
+            annotationMarkersPolygon.remove(polygon.getId());
+            return;
+        }
         float totalDistance = 0;
         // find total distance  A - D
         for (Polyline polyline: currentPolyLines) {
@@ -191,11 +199,17 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
         Marker centerOneMarker = googleMap.addMarker(new MarkerOptions()
                 .position(getPolygonCenterPoint(polygon.getPoints()))
                 .icon(makeBitmaptoShowDetails(String.valueOf(totalDistance))));
+        annotationMarkersPolygon.put(polygon.getId(), centerOneMarker);
     }
 
     @Override
     public void onPolylineClick(@NonNull Polyline polyline) {
-        Log.d("MAP", "Polyline click detected");
+        Log.d("MAP", "Polyline click detected: " + polyline.getId());
+        if(annotationMarkersPolyLine.get(polyline.getId()) != null){
+            annotationMarkersPolyLine.get(polyline.getId()).remove();
+            annotationMarkersPolyLine.remove(polyline.getId());
+            return;
+        }
         List<LatLng> coordiantesPolyLine = polyline.getPoints();
         LatLng polylineStart = coordiantesPolyLine.get(0);
         LatLng polylineEnd = coordiantesPolyLine.get(1);
@@ -207,6 +221,8 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
         Marker centerOneMarker = googleMap.addMarker(new MarkerOptions()
                 .position(midPoint)
                 .icon(makeBitmaptoShowDetails(String.valueOf(results[0]))));
+        annotationMarkersPolyLine.put(polyline.getId(), centerOneMarker);
+
 
 
     }
@@ -290,8 +306,7 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
 
     }
 
-    private void deleteMarker(){}
-    private void sortMarkers(){}
+
     private void clearallMarkers(){
         MARKER_LABELS = new ArrayList<String>(Arrays.asList("A", "B", "C", "D"));
     }
