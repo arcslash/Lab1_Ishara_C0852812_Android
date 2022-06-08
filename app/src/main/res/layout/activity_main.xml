@@ -17,10 +17,10 @@
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toBottomOf="@+id/editTextTextPersonName" />
+        app:layout_constraintTop_toBottomOf="@+id/etLocation" />
 
     <EditText
-        android:id="@+id/editTextTextPersonName"
+        android:id="@+id/etLocation"
         android:layout_width="273dp"
         android:layout_height="48dp"
         android:layout_marginStart="14dp"
@@ -37,6 +37,6 @@
         android:layout_marginStart="22dp"
         android:layout_marginTop="14dp"
         android:text="Add"
-        app:layout_constraintStart_toEndOf="@+id/editTextTextPersonName"
+        app:layout_constraintStart_toEndOf="@+id/etLocation"
         app:layout_constraintTop_toTopOf="parent" />
 </androidx.constraintlayout.widget.ConstraintLayout>
