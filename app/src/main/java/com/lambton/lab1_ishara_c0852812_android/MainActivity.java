@@ -46,7 +46,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 
-public class MainActivity extends AppCompatActivity implements OnMapReadyCallback, GoogleMap.OnMapLongClickListener, GoogleMap.OnPolylineClickListener, GoogleMap.OnPolygonClickListener, GoogleMap.OnMapClickListener {
+public class MainActivity extends AppCompatActivity implements OnMapReadyCallback, GoogleMap.OnMapLongClickListener, GoogleMap.OnPolylineClickListener, GoogleMap.OnPolygonClickListener, GoogleMap.OnMapClickListener, GoogleMap.OnMarkerClickListener {
 
     MapView mapView;
     GoogleMap googleMap;
@@ -59,11 +59,12 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
     // Marker Labels and current markers
     ArrayList<String> MARKER_LABELS = new ArrayList<String>(Arrays.asList("A", "B", "C", "D"));
     final int POLYGON_SIDES = 4;
+    final int POINT_DELETE_DISTANCE_THRESHOLD = 50;
 
 
 
 
-    ArrayList<MarkerOptions> currentMarkers = new ArrayList<MarkerOptions>();
+    ArrayList<Marker> currentMarkers = new ArrayList<Marker>();
     ArrayList<Polyline> currentPolyLines = new ArrayList<Polyline>();
 
 
@@ -176,9 +177,20 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
     @Override
     public void onPolygonClick(@NonNull Polygon polygon) {
         Log.d("MAP", "Polygon click detected");
-
+        float totalDistance = 0;
         // find total distance  A - D
+        for (Polyline polyline: currentPolyLines) {
+            LatLng polylineStart = polyline.getPoints().get(0);
+            LatLng polylineEnd = polyline.getPoints().get(1);
+            float[] results = new float[1];
+            Location.distanceBetween(polylineStart.latitude, polylineStart.longitude,
+                    polylineEnd.latitude, polylineEnd.longitude, results);
+            totalDistance += results[0];
+        }
 
+        Marker centerOneMarker = googleMap.addMarker(new MarkerOptions()
+                .position(getPolygonCenterPoint(polygon.getPoints()))
+                .icon(makeBitmaptoShowDetails(String.valueOf(totalDistance))));
     }
 
     @Override
@@ -199,13 +211,24 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
 
     }
 
-    public LatLng getPolylineCentroid(Polyline p) {
+    private LatLng getPolygonCenterPoint(List<LatLng> polygonPointsList){
+        LatLng centerLatLng = null;
+        LatLngBounds.Builder builder = new LatLngBounds.Builder();
+        for(int i = 0 ; i < polygonPointsList.size() ; i++)
+        {
+            builder.include(polygonPointsList.get(i));
+        }
+        LatLngBounds bounds = builder.build();
+        centerLatLng =  bounds.getCenter();
 
+        return centerLatLng;
+    }
+
+    public LatLng getPolylineCentroid(Polyline p) {
         LatLngBounds.Builder builder = new LatLngBounds.Builder();
         for(int i = 0; i < p.getPoints().size(); i++){
             builder.include(p.getPoints().get(i));
         }
-
         LatLngBounds bounds = builder.build();
 
         return bounds.getCenter();
@@ -250,8 +273,9 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
 
         googleMap.setOnMapLongClickListener(this);
         googleMap.setOnMapClickListener(this);
-        googleMap.setOnPolygonClickListener(this);
         googleMap.setOnPolylineClickListener(this);
+        googleMap.setOnPolygonClickListener(this);
+        googleMap.setOnMarkerClickListener(this);
     }
 
     private String findNextMarker(){
@@ -279,8 +303,9 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
             return;
         }
         MarkerOptions markerOption = new MarkerOptions().position(latLng).title(currentMarker);
-        googleMap.addMarker(markerOption).showInfoWindow();
-        currentMarkers.add(markerOption);
+        Marker marker = googleMap.addMarker(markerOption);
+        marker.showInfoWindow();
+        currentMarkers.add(marker);
         if(currentMarkers.size() > 1){
             //draw polyline
             Log.d("MAP_CLICK", "Adding polyline");
@@ -308,10 +333,11 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
 
                 PolygonOptions opts=new PolygonOptions();
 
-                for (MarkerOptions marker: currentMarkers) {
-                    opts.add(marker.getPosition());
+                for (Marker markerX: currentMarkers) {
+                    opts.add(markerX.getPosition());
                 }
                 Polygon polygon = googleMap.addPolygon(opts.strokeColor(Color.RED).fillColor(Color.parseColor("#4300ff00")));
+                polygon.setClickable(true);
             }
 
         }
@@ -357,6 +383,35 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
     @Override
     public void onMapLongClick(@NonNull LatLng latLng) {
         Log.d("MAP", "Map Long click" + latLng);
+        //clear marker
+        float[] pointADistance = new float[1];
+        float[] pointBDistance = new float[1];
+        float[] pointCDistance = new float[1];
+        float[] pointEDistance = new float[1];
+        Location.distanceBetween(currentMarkers.get(0).getPosition().latitude, currentMarkers.get(0).getPosition().longitude,
+                latLng.latitude, latLng.longitude, pointADistance);
+        Location.distanceBetween(currentMarkers.get(1).getPosition().latitude, currentMarkers.get(1).getPosition().longitude,
+                latLng.latitude, latLng.longitude, pointBDistance);
+        Location.distanceBetween(currentMarkers.get(2).getPosition().latitude, currentMarkers.get(2).getPosition().longitude,
+                latLng.latitude, latLng.longitude, pointCDistance);
+        Location.distanceBetween(currentMarkers.get(3).getPosition().latitude, currentMarkers.get(3).getPosition().longitude,
+                latLng.latitude, latLng.longitude, pointEDistance);
+
+        if(pointADistance[0] < POINT_DELETE_DISTANCE_THRESHOLD){
+            currentMarkers.get(0).remove();
+        }
+        if(pointBDistance[0] < POINT_DELETE_DISTANCE_THRESHOLD){
+            currentMarkers.get(1).remove();
+        }
+        if(pointCDistance[0] < POINT_DELETE_DISTANCE_THRESHOLD){
+            currentMarkers.get(2).remove();
+        }
+        if(pointEDistance[0] < POINT_DELETE_DISTANCE_THRESHOLD){
+            currentMarkers.get(3).remove();
+        }
+
+
+
 
 
     }
@@ -365,5 +420,10 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
     public void onMapClick(@NonNull LatLng latLng) {
         Log.d("MAP", "Map just click" + latLng);
         addMarker(latLng);
+    }
+
+    @Override
+    public boolean onMarkerClick(@NonNull Marker marker) {
+        return true;
     }
 }
