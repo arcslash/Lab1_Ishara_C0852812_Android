@@ -9,9 +9,11 @@ import androidx.core.app.ActivityCompat;
 
 import android.Manifest;
 import android.content.pm.PackageManager;
+import android.graphics.Bitmap;
 import android.graphics.Color;
 import android.location.Address;
 import android.location.Geocoder;
+import android.location.Location;
 import android.location.LocationManager;
 import android.os.Build;
 import android.os.Bundle;
@@ -19,6 +21,8 @@ import android.util.Log;
 import android.view.View;
 import android.widget.Button;
 import android.widget.EditText;
+import android.widget.LinearLayout;
+import android.widget.TextView;
 import android.widget.Toast;
 
 import com.google.android.gms.maps.CameraUpdateFactory;
@@ -26,7 +30,11 @@ import com.google.android.gms.maps.GoogleMap;
 import com.google.android.gms.maps.MapView;
 import com.google.android.gms.maps.OnMapReadyCallback;
 import com.google.android.gms.maps.UiSettings;
+import com.google.android.gms.maps.model.BitmapDescriptor;
+import com.google.android.gms.maps.model.BitmapDescriptorFactory;
 import com.google.android.gms.maps.model.LatLng;
+import com.google.android.gms.maps.model.LatLngBounds;
+import com.google.android.gms.maps.model.Marker;
 import com.google.android.gms.maps.model.MarkerOptions;
 import com.google.android.gms.maps.model.Polygon;
 import com.google.android.gms.maps.model.PolygonOptions;
@@ -35,6 +43,7 @@ import com.google.android.gms.maps.model.PolylineOptions;
 
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 
 public class MainActivity extends AppCompatActivity implements OnMapReadyCallback, GoogleMap.OnMapLongClickListener, GoogleMap.OnPolylineClickListener, GoogleMap.OnPolygonClickListener, GoogleMap.OnMapClickListener {
@@ -48,8 +57,10 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
     Geocoder geocoder;
 
     // Marker Labels and current markers
-    final String[] MARKER_LABELS = new String[]{"A", "B", "C", "D"};
+    ArrayList<String> MARKER_LABELS = new ArrayList<String>(Arrays.asList("A", "B", "C", "D"));
     final int POLYGON_SIDES = 4;
+
+
 
 
     ArrayList<MarkerOptions> currentMarkers = new ArrayList<MarkerOptions>();
@@ -164,11 +175,58 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
 
     @Override
     public void onPolygonClick(@NonNull Polygon polygon) {
+        Log.d("MAP", "Polygon click detected");
+
+        // find total distance  A - D
 
     }
 
     @Override
     public void onPolylineClick(@NonNull Polyline polyline) {
+        Log.d("MAP", "Polyline click detected");
+        List<LatLng> coordiantesPolyLine = polyline.getPoints();
+        LatLng polylineStart = coordiantesPolyLine.get(0);
+        LatLng polylineEnd = coordiantesPolyLine.get(1);
+        float[] results = new float[1];
+        Location.distanceBetween(polylineStart.latitude, polylineStart.longitude,
+                polylineEnd.latitude, polylineEnd.longitude, results);
+
+        LatLng midPoint = getPolylineCentroid(polyline);
+        Marker centerOneMarker = googleMap.addMarker(new MarkerOptions()
+                .position(midPoint)
+                .icon(makeBitmaptoShowDetails(String.valueOf(results[0]))));
+
+
+    }
+
+    public LatLng getPolylineCentroid(Polyline p) {
+
+        LatLngBounds.Builder builder = new LatLngBounds.Builder();
+        for(int i = 0; i < p.getPoints().size(); i++){
+            builder.include(p.getPoints().get(i));
+        }
+
+        LatLngBounds bounds = builder.build();
+
+        return bounds.getCenter();
+    }
+
+    private BitmapDescriptor makeBitmaptoShowDetails(String label){
+        LinearLayout distanceMarkerLayout = (LinearLayout) getLayoutInflater().inflate(R.layout.marker_details, null);
+
+        distanceMarkerLayout.setDrawingCacheEnabled(true);
+        distanceMarkerLayout.measure(View.MeasureSpec.makeMeasureSpec(0, View.MeasureSpec.UNSPECIFIED), View.MeasureSpec.makeMeasureSpec(0, View.MeasureSpec.UNSPECIFIED));
+        distanceMarkerLayout.layout(0, 0, distanceMarkerLayout.getMeasuredWidth(), distanceMarkerLayout.getMeasuredHeight());
+        distanceMarkerLayout.buildDrawingCache(true);
+
+        TextView positionDistance = distanceMarkerLayout.findViewById(R.id.tvmarkerText);
+
+        positionDistance.setText(label);
+
+        Bitmap flagBitmap = Bitmap.createBitmap(distanceMarkerLayout.getDrawingCache());
+        distanceMarkerLayout.setDrawingCacheEnabled(false);
+        BitmapDescriptor flagBitmapDescriptor = BitmapDescriptorFactory.fromBitmap(flagBitmap);
+        return  flagBitmapDescriptor;
 
     }
 
@@ -197,14 +255,29 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
     }
 
     private String findNextMarker(){
-        for(String markerLabel: MARKER_LABELS){
-
+        if(MARKER_LABELS.size() > 0){
+            String currentMarker =  MARKER_LABELS.get(0);
+            MARKER_LABELS.remove(0);
+            return currentMarker;
+        }else{
+            return "";
         }
-        return "A";
+
+
+    }
+
+    private void deleteMarker(){}
+    private void sortMarkers(){}
+    private void clearallMarkers(){
+        MARKER_LABELS = new ArrayList<String>(Arrays.asList("A", "B", "C", "D"));
     }
 
     private void addMarker(LatLng latLng){
         String currentMarker = findNextMarker();
+        if(currentMarker == ""){
+            Log.d("MARKER_LIMIT", "Marker Limit Reached");
+            return;
+        }
         MarkerOptions markerOption = new MarkerOptions().position(latLng).title(currentMarker);
         googleMap.addMarker(markerOption).showInfoWindow();
         currentMarkers.add(markerOption);
@@ -221,6 +294,17 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
             currentPolyLines.add(polyline);
 
             if(currentMarkers.size() > POLYGON_SIDES - 1){
+
+                //Adding final poly line connecting all
+                Polyline polylineEnf = googleMap.addPolyline(new PolylineOptions()
+                        .clickable(true)
+                        .color(Color.RED)
+                        .add(
+                                currentMarkers.get(0).getPosition(),
+                                currentMarkers.get(currentMarkers.size() - 1).getPosition())
+                );
+                currentPolyLines.add(polyline);
+
 
                 PolygonOptions opts=new PolygonOptions();
 
@@ -272,14 +356,14 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
 
     @Override
     public void onMapLongClick(@NonNull LatLng latLng) {
-        Log.d("MAP_CLICK", "Map Long click" + latLng);
+        Log.d("MAP", "Map Long click" + latLng);
 
 
     }
 
     @Override
     public void onMapClick(@NonNull LatLng latLng) {
-        Log.d("MAP_CLICK", "Map just click" + latLng);
+        Log.d("MAP", "Map just click" + latLng);
         addMarker(latLng);
     }
 }
